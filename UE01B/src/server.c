@@ -1,23 +1,22 @@
 /**
- * @file client.c
+ * @file server.c
  * @author Maximilian Müller
- * @date 28.10.2019
+ * @date 31.10.2019
  *
- * @brief A simple HTTP client, able to send http requests and displays the respnes in a file
- *
- * Some more detailed Comments
+ * @brief A simple HTTP Server
  */
 
-#include <sys/types.h>
+#include <errno.h>
+#include <netdb.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
+#include <sys/types.h>
 #include <sys/socket.h>
-#include <netdb.h>
-#include <errno.h>
-#include <signal.h>
 #include <time.h>
+#include <unistd.h>
+
 #include "server.h"
 
 #define MAX_CONNECTIONS 10
@@ -25,6 +24,13 @@
 
 volatile sig_atomic_t quit = 0;
 
+/**
+ * 
+ * @brief
+ * 
+ * @param
+ * @return
+ */
 void handle_soft_exit(int signal) {
     quit = 1;
 }
@@ -32,7 +38,6 @@ void handle_soft_exit(int signal) {
 /**
  * Prints the correct usage of the Programm
  */
-
 static void usage(char* pname) {
 	fprintf(stderr, "Usage: %s [-p PORT] [-i INDEX] DOC_ROOT\n"
     "\t-p PORT to bind to (default = 8080)\n"
@@ -41,48 +46,64 @@ static void usage(char* pname) {
 }
 
 
+/**
+ * 
+ * @brief Handles a singular Connection beteen the server and a client
+ * 
+ * @param sockfile pointer to the socket
+ * @param documentroot the servers root folder in respect to the html documents (conventionally /var/www)
+ * @return returns EXIT_SUCCESS if connection was handeled sucessfully
+ */
 int handle_connection(FILE* sockfile, char* documentroot, char* indexfile) {
-    char *filepath = malloc(sizeof documentroot);
     char *buf = NULL;
     size_t len = 0;
 
-    if (!getline(&buf, &len, sockfile)) return EXIT_FAILURE;
-    printf("%s", buf);
+    /* fetch first line in request */
+    if (!getline(&buf, &len, sockfile)) return EXIT_FAILURE; 
+    printf("Request: %s", buf);
     
+    /* extract method, path and protocoll from request */
     char* method = strtok(buf, " ");
     char* path = strtok(NULL, " ");
     char* protocol = strtok(NULL, "\r");
 
+    /* decline request if the three parameters couldn't be extracted */
     if (!method||!path||!protocol) {
         printf("Bad Request\n");
         send_error(sockfile, 400, "Bad Request", "Bad Request");
-        return EXIT_SUCCESS;
+        return EXIT_FAILURE;
     }
     
-    if (!strcmp(method, "GET")) {
+    if (strcmp(method, "GET")!=0) { /* decline request if method is not "GET" */
         printf("Not Implemented\n");
         send_error(sockfile, 501, "Not Implemented", "Not Implemented");
-        return EXIT_SUCCESS;
+        return EXIT_FAILURE;
     }
 
+    /* create document path from documentroot, the path from the request and the (optional) indexfile */
+    char *filepath = malloc(sizeof documentroot);
     strcpy(filepath, documentroot);
     strcat(filepath, path);
     if (filepath[strlen(filepath)-1]=='/')
         strcat(filepath, indexfile);
     
-    printf("Parsed request\n");
-    printf("Method: %s; File: %s; Protocol: %s\n", method, filepath, protocol);
-
+    printf("Requested File: %s\n", filepath);
     
     while (strlen(buf)>2) {
         getline(&buf, &len, sockfile);
     }
-    fseek(sockfile, 0, SEEK_CUR);
 
     send_response(sockfile, filepath);
     return EXIT_SUCCESS;
 }
 
+/**
+ * 
+ * @brief creates, binds, and accepts a server-socket and handles http requests
+ * 
+ * @param port
+ * @return
+ */
 int http_server(char* port, char* documentroot, char* indexfile) {
     struct addrinfo hints, *ai;
     memset(&hints, 0, sizeof hints);
@@ -128,6 +149,9 @@ int http_server(char* port, char* documentroot, char* indexfile) {
         }
     }
 
+    printf("Created HTTP Server listening on Port: %s\n", port);
+    printf("Document Root:%s; Indexfile: %s\n", documentroot, indexfile);
+
     FILE* sockfile;
     int connfd;
     struct sockaddr_in in_addr;
@@ -138,7 +162,7 @@ int http_server(char* port, char* documentroot, char* indexfile) {
             freeaddrinfo(ai);
             return(EXIT_FAILURE);
         }
-        printf("Accepted connection %i\n", in_addr.sin_addr.s_addr);
+        // printf("Accepted connection %i\n", in_addr.sin_addr.s_addr);
         sockfile = fdopen(connfd, "r+");
         handle_connection(sockfile, documentroot, indexfile);
         fclose(sockfile);
@@ -150,15 +174,29 @@ int http_server(char* port, char* documentroot, char* indexfile) {
     return(EXIT_SUCCESS);
 }
 
+/**
+ * 
+ * @brief
+ * 
+ * @param
+ * @return
+ */
 int send_error(FILE* sockfile, int scode, char* title, char* text) {
-    send_header(sockfile, scode, title);
-    fprintf(sockfile, "<html><head><title>%i %s</title></head>", scode, title);
-    fprintf(sockfile, "<body><p><b>%i:<b> %s</p></body></html>", scode, text);
+    send_header(sockfile, scode, title, 0);
+    // fprintf(sockfile, "<html><head><title>%i %s</title></head>", scode, title);
+    // fprintf(sockfile, "<body><p><b>%i:<b> %s</p></body></html>", scode, text);
     fflush(sockfile);
     return EXIT_SUCCESS;
 }
 
-int send_header(FILE* sockfile, int statuscode, char* statusname) {
+/**
+ * 
+ * @brief
+ * 
+ * @param
+ * @return
+ */
+int send_header(FILE* sockfile, int statuscode, char* statusname, long content_len) {
     time_t now = time(NULL);
     char timebuf[128];
     strftime(timebuf, sizeof(timebuf), RFC822, gmtime(&now));
@@ -166,35 +204,55 @@ int send_header(FILE* sockfile, int statuscode, char* statusname) {
     fprintf(sockfile, "HTTP/1.1 %i %s\r\n", statuscode, statusname);
     fprintf(sockfile, "Date: %s\r\n", timebuf);
     fprintf(sockfile, "Content-type: text/html\r\n");
+    fprintf(sockfile, "Content-Length: %li\r\n", content_len);
     fprintf(sockfile, "Connection: close\r\n");
     fprintf(sockfile, "\r\n");
 
     return EXIT_SUCCESS;
 }
 
+/**
+ * 
+ * @brief
+ * 
+ * @param
+ * @return
+ */
 int send_response(FILE* sockfile, char* filepath) {
     FILE* webpage;
 
     webpage=fopen(filepath, "r");
     if (!webpage) {
-        printf("Error opening file\n");
+        printf("File not found\n");
         send_error(sockfile, 404, "Not Found", "File Not Found");
         return EXIT_FAILURE;
     }
 
-    send_header(sockfile, 200, "OK");
+    
+
+
+    fseek(webpage, 0, SEEK_END);
+    long content_len = ftell(webpage);
+    fseek(webpage, 0, SEEK_SET);
     char data[2048];
-    int n;
+    
+    send_header(sockfile, 200, "OK", content_len);
 
-    while ((n = fread(data, 1, sizeof(data), webpage)) > 0) 
-        fwrite(data, 1, n, sockfile);
-
+    int a;
+    while ((a = fread(data, 1, content_len, webpage))>0)    
+        fwrite(data, 1, a, sockfile);
     
     fflush(sockfile);
-    printf("Finished sending response\n");
     return EXIT_SUCCESS;
 }
 
+/**
+ * 
+ * @brief
+ * 
+ * @param
+ * @return
+ */
 int main (int argc, char **argv){
 
 	struct sigaction sa;
@@ -242,8 +300,6 @@ int main (int argc, char **argv){
 
     docroot = argv[optind];
 
-    printf("Port: %s, Doc Root: %s, index: %s\n", port, docroot, indexfile);
-    printf("http://localhost:%s\n", port);
     http_server(port, docroot, indexfile);
 
     return(EXIT_SUCCESS);
