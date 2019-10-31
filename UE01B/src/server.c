@@ -21,7 +21,7 @@
 #include "server.h"
 
 #define MAX_CONNECTIONS 10
-#define RFC1123FMT "%a, %d %b %Y %H:%M:%S GMT"
+#define RFC822 "%a, %d %b %Y %H:%M:%S GMT"
 
 volatile sig_atomic_t quit = 0;
 
@@ -161,7 +161,7 @@ int send_error(FILE* sockfile, int scode, char* title, char* text) {
 int send_header(FILE* sockfile, int statuscode, char* statusname) {
     time_t now = time(NULL);
     char timebuf[128];
-    strftime(timebuf, sizeof(timebuf), RFC1123FMT, gmtime(&now));
+    strftime(timebuf, sizeof(timebuf), RFC822, gmtime(&now));
 
     fprintf(sockfile, "HTTP/1.1 %i %s\r\n", statuscode, statusname);
     fprintf(sockfile, "Date: %s\r\n", timebuf);
