@@ -109,7 +109,7 @@ char* urlfilename(char* url) {
 	if (opt_o > 0 && opt_d > 0) {
 		fprintf(stderr, "You can either choose a file or a dir!\n");
 		usage(argv[0]);
-	}
+	} 
 
 	if ((argc-optind)!=1) {
 		fprintf(stderr, "You have to specify ONE URL!\n");
