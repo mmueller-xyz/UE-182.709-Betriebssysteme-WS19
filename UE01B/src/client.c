@@ -16,11 +16,14 @@
 //#include <ctype.h>
 #include "client.h"
 static void usage(char* pname);
+
+static char* pname;
+
 /**
  * Prints the correct usage of the Programm
  */
-static void usage(char* pname) {
-	fprintf(stderr, "Usage: %s [-p PORT] [-o FILE | -d DIR] URL\n\t-p PORT to connect to (default = 80)\n\t-o write output to specified file\n\t-d directory to write response to\n", pname);
+static void usage(char* pname_) {
+	fprintf(stderr, "%s: Usage: %s [-p PORT] [-o FILE | -d DIR] URL\n\t-p PORT to connect to (default = 80)\n\t-o write output to specified file\n\t-d directory to write response to\n", pname, pname_);
 	exit(EXIT_FAILURE);
 }
 
@@ -74,8 +77,9 @@ char* urlfilename(char* url) {
  * @param
  * @return Returns EXIT_SUCCESS
  */
- int main(int argc, char *argv[])
- {
+ int main(int argc, char *argv[]) {
+	pname = argv[0];
+
 	/* Argument Parsing */
 	char *p_arg = NULL, *o_arg = NULL, *d_arg = NULL, *url;
 	int opt_p = 0, opt_o = 0, opt_d = 0, c, port;
@@ -102,17 +106,17 @@ char* urlfilename(char* url) {
  		}
  	}
  	if (opt_p > 1 || opt_o > 1 || opt_d > 1) {
- 		fprintf(stderr, "Every option can only be used unce!\n");
+ 		fprintf(stderr, "%s: Every option can only be used unce!\n", pname);
  		usage(argv[0]);
  	} // option is repeated
 
 	if (opt_o > 0 && opt_d > 0) {
-		fprintf(stderr, "You can either choose a file or a dir!\n");
+		fprintf(stderr, "%s: You can either choose a file or a dir!\n", pname);
 		usage(argv[0]);
 	} 
 
 	if ((argc-optind)!=1) {
-		fprintf(stderr, "You have to specify ONE URL!\n");
+		fprintf(stderr, "%s: You have to specify ONE URL!\n", pname);
 		usage(argv[0]);
 	}
 
@@ -120,22 +124,6 @@ char* urlfilename(char* url) {
 	else port = atoi(p_arg);
 
 	url = argv[optind];
-	if (strlen(url)>7){
-		const char* HTTP_IDENT = "http://";
-		for (int i = 0; i < 7; i++){
-			if (url[i] != HTTP_IDENT[i]) {
-				fprintf(stderr, "Invalid URL: %s\n"
-				"URL must start with 'http://'\n", url);
-				exit(EXIT_FAILURE);
-			}
-		}
-	} else {
-		fprintf(stderr, "Invalid URL: %s\n"
-		"URL must start with 'http://'\n", url);
-		exit(EXIT_FAILURE);
-	}
-	if (url[strlen(url)-1] == '/') strcat(url, "index.html");
-
 
 	FILE* outfile;
 	if (opt_d) {
@@ -144,20 +132,20 @@ char* urlfilename(char* url) {
 		strcpy(path, d_arg);
 		strcat(path, fn);
 		if ((outfile = fopen(path, "w")) == NULL) {
-			fprintf(stderr, "Could not open file: %s\n", path);
+			fprintf(stderr, "%s: Could not open file: %s\n", pname, path);
 			exit(EXIT_FAILURE);
 		}
 		free(path);
 	} if (opt_o) {
 		if ((outfile = fopen(o_arg, "w")) == NULL) {
-			fprintf(stderr, "Could not open file: %s\n", o_arg);
+			fprintf(stderr, "%s: Could not open file: %s\n", pname, o_arg);
 			exit(EXIT_FAILURE);
 		}
 
 	} else outfile=stdout;
 
 
-	printf("URL: %s, PORT: %i\n", url, port);
+	printf("%s: URL: %s, PORT: %i\n", pname, url, port);
 	request(url, port, outfile);
 
 	fclose(outfile);

@@ -82,13 +82,14 @@ int handle_connection(FILE* sockfile, char* documentroot, char* indexfile) {
     }
     
     if (strcmp(method, "GET")!=0) { /* decline request if method is not "GET" */
-        fprintf(stderr, "%s Not Implemented\n", pname);
+        fprintf(stderr, "%s: Not Implemented\n", pname);
         send_error(sockfile, 501, "Not Implemented");
         return EXIT_FAILURE;
     }
 
     /* create document path from documentroot, the path from the request and the (optional) indexfile */
-    char *filepath = malloc(sizeof documentroot);
+    char *filepath = calloc(strlen(documentroot) +
+        strlen(path) + strlen(indexfile) + 1, sizeof(char));
     strcpy(filepath, documentroot);
     strcat(filepath, path);
     if (filepath[strlen(filepath)-1]=='/')
@@ -99,8 +100,10 @@ int handle_connection(FILE* sockfile, char* documentroot, char* indexfile) {
     while (strlen(buf)>2) {
         getline(&buf, &len, sockfile);
     }
+    fprintf(stderr, "%s: Sending response\n", pname);
 
     send_file(sockfile, filepath);
+    free(filepath);
     return EXIT_SUCCESS;
 }
 
@@ -210,9 +213,10 @@ int http_server(char* port, char* documentroot, char* indexfile) {
  * @return
  */
 int send_error(FILE* sockfile, int scode, char* sname) {
-    send_header(sockfile, scode, sname, 0);
-    // fprintf(sockfile, "<html><head><title>%i %s</title></head>", scode, title);
-    // fprintf(sockfile, "<body><p><b>%i:<b> %s</p></body></html>", scode, text);
+    int len = 71 + 2*3 + 2*strlen(sname); // 71 fixed Chars + 2x statuscode(3B) + 2xstatuscodename
+    send_header(sockfile, scode, sname, len);
+    fprintf(sockfile, "<html><head><title>%i %s</title></head>", scode, sname);
+    fprintf(sockfile, "<body><p><b>%i:</b> %s</p></body></html>", scode, sname);
     fflush(sockfile);
     return EXIT_SUCCESS;
 }
@@ -252,13 +256,14 @@ int send_header(FILE* sockfile, int scode, char* sname, long content_len) {
 int send_file(FILE* sockfile, char* filepath) {
     FILE* webpage;
 
-    webpage=fopen(filepath, "r");
-    if (!webpage) {
-        fprintf(stderr, "%s: File not found\n", pname);
-        send_error(sockfile, 404, "Not Found");
-        return EXIT_FAILURE;
+    while ((webpage=fopen(filepath, "r"))==NULL) {
+        if (errno != EINTR) {
+            fprintf(stderr, "%s: File not found\n", pname);
+            send_error(sockfile, 404, "Not Found");
+            return EXIT_FAILURE;
+        }
     }
-
+    
     /* get filelength */
     fseek(webpage, 0, SEEK_END);
     long content_len = ftell(webpage);
@@ -275,7 +280,7 @@ int send_file(FILE* sockfile, char* filepath) {
     while ((chars_read = fread(data, 1, 2048, webpage)) > 0)    
         fwrite(data, 1, chars_read, sockfile);
 
-
+    fclose(webpage);
     fflush(sockfile);
     return EXIT_SUCCESS;
 }
