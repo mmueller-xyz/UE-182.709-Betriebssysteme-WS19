@@ -1,5 +1,5 @@
 # Author: Maximilian Müller (11810852)
-# Programm Name: test
+# Programm Name: UE01A
 
 CC = gcc
 DEFS = -D_DEFAULT_SOURCE -D_BSD_SOURCE -D_SVID_SOURCE -D_POSIX_C_SOURCE=200809L
@@ -21,7 +21,7 @@ scp: clean
 	@ssh tilab 'ssh $(TILAB_COMPUTER) "make -C ~/$(shell basename $(CURDIR))/ all"'
 
 compress: clean
-	@tar -cvzf /tmp/$(NAME).tgz ./ 
+	@tar -cvzf /tmp/$(NAME).tgz src/ makefile 
 	@mv /tmp/$(NAME).tgz ./
 
 isopalindrom: $(OBJECTS)

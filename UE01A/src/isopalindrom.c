@@ -15,6 +15,8 @@
 
 /**
  * Prints the correct usage of the Programm
+ * 
+ * @param pname The path and name of the executed programm
  */
 static void usage(char* pname) {
 	fprintf(stderr, "Usage: %s [-s] [-i] [-o outfile] [file...]\n\t-s ignore whitespaces\n\t-i igonre upper/lowercase\n\t-o write output to specified file\n", pname);
@@ -53,7 +55,9 @@ void check_palindrom(FILE **infiles, int in_len, FILE *outfile, int ignore_case,
  * This function checks whether a given string is a palindrom,
  * meaning, that it is read the same forward and backwards
  *
- * @param str the input to be validated
+ * @param str the input to be validated, it could be manipulated in the process
+ * @param ignore_case if set to 0, upper case is ignored
+ * @param ignore_whitespace if set to 0, all whitespaces are ignored
  * @return 1 if it is a palindrom, else it is not
  */
 int is_palindrom(char *str, int ignore_case, int ignore_whitespaces) {
@@ -67,16 +71,15 @@ int is_palindrom(char *str, int ignore_case, int ignore_whitespaces) {
 	if (ignore_case) for (int i =0; str[i]; i++) str[i] = tolower(str[i]);
 
 	int i = 0, j = strlen(str) - 1;
-	while (j > i) if (str[i++] != str[j--]) return(0);
+	while (j > i) if (str[i++] != str[j--]) return(EXIT_SUCCESS);
 
-	return(1);
+	return(EXIT_FAILURE);
 }
 
 /**
  * Program entry point.
  *
- * @param
- * @return Returns EXIT_SUCCESS
+ * @brief handles commandline arguments and creation of i/o files
  */
 int main(int argc, char *argv[])
 {
@@ -115,7 +118,7 @@ int main(int argc, char *argv[])
 		if (outfile_fp == NULL) {fprintf(stderr, "Can't open outfile '%s'!\n", o_arg);exit(1);}
 	} else { outfile_fp = stdout; }
 
-	// generate a list of input file streams
+	/* generate a list of input file streams */
 	int infiles = argc-optind;
 	if (infiles > 0) {
 		infile_fp = malloc(infiles * sizeof(FILE*));

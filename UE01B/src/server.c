@@ -74,10 +74,12 @@ int handle_connection(FILE* sockfile, char* documentroot, char* indexfile) {
     char* path = strtok(NULL, " ");
     char* protocol = strtok(NULL, "\r");
 
+
     /* decline request if the three parameters couldn't be extracted */
     if (!method||!path||!protocol) {
         fprintf(stderr, "%s: Bad Request\n", pname);
         send_error(sockfile, 400, "Bad Request");
+
         return EXIT_FAILURE;
     }
     
@@ -138,36 +140,30 @@ int http_server(char* port, char* documentroot, char* indexfile) {
 
 
     int res = getaddrinfo(NULL, port, &hints, &ai);
-    if (res!=0) {
+    if (res != 0) {
         fprintf(stderr, "%s: Failed to get addrinfo: %s", pname, gai_strerror(res));
+        freeaddrinfo(ai);
         return(EXIT_FAILURE);
     }
 
-    int sockfd = -1;
-    errno = EINTR;
-    while ((sockfd = socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol)) <0) {
-        if (errno != EINTR) {
-            fprintf(stderr, "%s: Failed to create socket: %s\n", pname, strerror(errno));
-            freeaddrinfo(ai);
-            return(EXIT_FAILURE);
-        }
+    int sockfd = socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
+    if (sockfd < 0) {
+        fprintf(stderr, "%s: Failed to create socket: %s\n", pname, strerror(errno));
+        freeaddrinfo(ai);
+        return(EXIT_FAILURE);
     }
 
-    while (bind(sockfd, ai->ai_addr, ai->ai_addrlen) < 0) {
-        if (errno != EINTR) {
-            fprintf(stderr, "%s: Failed to bind socket: %s\n", pname, strerror(errno));
-            freeaddrinfo(ai);
-            return(EXIT_FAILURE);
-        }
+    if (bind(sockfd, ai->ai_addr, ai->ai_addrlen) < 0) {
+        fprintf(stderr, "%s: Failed to bind socket: %s\n", pname, strerror(errno));
+        freeaddrinfo(ai);
+        return(EXIT_FAILURE);
     }
 
     int optval = 1;
-    while (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof optval)<0) {
-        if (errno != EINTR) {
-            fprintf(stderr, "%s: Failed to set socket options: %s\n", pname, strerror(errno));
-            freeaddrinfo(ai);
-            return(EXIT_FAILURE);
-        }
+    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof optval) < 0) {
+        fprintf(stderr, "%s: Failed to set socket options: %s\n", pname, strerror(errno));
+        freeaddrinfo(ai);
+        return(EXIT_FAILURE);
     }
 
     while (listen(sockfd, MAX_CONNECTIONS)) {
@@ -199,6 +195,7 @@ int http_server(char* port, char* documentroot, char* indexfile) {
     }
 
     fprintf(stdout, "%s: Closing Server and exiting\n", pname);
+    close(sockfd);
     freeaddrinfo(ai);
 
     return(EXIT_SUCCESS);
