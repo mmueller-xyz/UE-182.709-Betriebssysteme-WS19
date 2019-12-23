@@ -155,7 +155,7 @@ int* urlinfo(char* url) {
 	pos[2] = pos[1];
 	for (int h = 1; h; pos[2]++){
 		if (url[pos[2]] == '/' || url[pos[2]] == '\0') 
-				h=0;
+			h=0;
 	}
 	pos[2]--;
 
