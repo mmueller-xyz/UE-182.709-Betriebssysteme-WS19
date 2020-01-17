@@ -38,7 +38,7 @@ void write_buf(solution s) {
 }
 
 void setup_shm() {
-    shmfd = shm_open(SHM_NAME, O_RDWR | O_CREAT, 0600);
+    shmfd = shm_open(SHM_NAME, O_RDWR | O_CREAT | O_EXCL, 0600);
     if (shmfd == -1) 
         exitErr("Failed to setup shm! Check /dev/shm/ if files already exist.");    
     
