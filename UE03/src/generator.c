@@ -54,7 +54,7 @@ void parse_inputs(int argc, char* argv[]) {
     }
 }
 
-/** @brief generates a random color set for all vertices */
+/** @brief generates a random color set for all verticies */
 void generate_color_set() {
     colors = malloc(sizeof(int)*graph->max_vertex+1);
     for (size_t i = 0; i <= graph->max_vertex; i++)

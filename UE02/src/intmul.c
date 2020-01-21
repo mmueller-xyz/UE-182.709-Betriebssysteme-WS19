@@ -269,7 +269,7 @@ void add4(char* A, char* B, char* C, char* D, char* sum, int n){
 char digitSum(char A, char B) {
     int a = hextoint(A);
     int b = hextoint(B);
-    return inttohex((a+b)%16);
+    return inttohex((a+b) & 0x0F);
 }
 
 /**
